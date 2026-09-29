@@ -21,17 +21,21 @@ This roadmap outlines current development milestones, architectural priorities, 
 
 ---
 
-## Active Milestone: Phase 2 — Memory, Heap & Concurrency (In Progress)
+- [x] **Phase 2: Memory, Heap & Concurrency Diagnostics**
+  - Live heap region breakdown (Eden, Survivor, Old Gen) & allocation pressure evaluation (`MemoryMXBeanClient`).
+  - GC pause tracker and diagnostic recommendations (`get_heap_summary`, `detect_memory_pressure`).
+  - Heap class histogram via `jcmd GC.class_histogram` Attach API stream parsing (`HeapHistogramReader`).
+  - Structured thread dumps and deadlock cycle reconstruction (`ThreadMXBeanClient`).
+  - CLI diagnostic commands (`jvm-mcp memory <pid>`, `jvm-mcp threads <pid>`).
 
-- [ ] **Memory & GC Diagnostics (`dev.jvmmcp.core.jmx.MemoryMXBeanClient`)**
-  - Live heap region breakdown (Eden, Survivor, Old Gen).
-  - GC pause tracker and allocation pressure score.
-  - Heap class histogram via `jmap -histo:live` Attach API integration.
-- [ ] **Thread & Deadlock Analysis (`dev.jvmmcp.core.jmx.ThreadMXBeanClient`)**
-  - Full thread dump formatter optimized for LLM token limits.
-  - Cycle detection and lock owner tracing for deadlocked threads.
-  - Virtual thread (Project Loom) detection and state grouping.
+---
 
+## Active Milestone: Phase 3 — Spring Beans Inspector (In Progress)
+
+- [ ] **Spring Context Introspection (`dev.jvmmcp.core.spring.SpringBeansClient`)**
+  - Connect to Spring Boot JMX MBean (`org.springframework.boot:type=Endpoint,name=Beans`).
+  - Fast actuator HTTP fallback probe (`/actuator/beans`).
+  - Glob filtering (`*Service*`, `*Repository*`).
 ---
 
 ## Upcoming Community Milestones (Open for Contributions)
@@ -39,11 +43,6 @@ This roadmap outlines current development milestones, architectural priorities, 
 The following areas are ideal for external contributors looking to claim an issue:
 
 ### 1. Spring Beans Inspector (Phase 3) — `help wanted`
-- [ ] Connect to Spring Boot JMX MBean (`org.springframework.boot:type=Endpoint,name=Beans`).
-- [ ] Implement glob filtering (`*Service*`, `*Repository*`).
-- [ ] Extract direct dependency graphs (`@Autowired` beans, scopes, class names).
-
-### 2. HikariCP Connection Pool Inspector (Phase 4) — `good first issue`
 - [ ] Query `com.zaxxer.hikari:type=Pool (*)` MBeans.
 - [ ] Calculate pool saturation ratio (`active / max`) and acquire latency warnings.
 - [ ] Multi-datasource support (handling multiple distinct Hikari pools in a single JVM).
