@@ -29,7 +29,16 @@ public class ServeCommand implements Runnable {
             System.exit(1);
         }
 
-        System.err.println("Starting jvm-mcp (pure SDK) via " + transport + "...");
-        // TODO: Initialize io.modelcontextprotocol.sdk:mcp server here
+        if (targetPid != null) {
+            dev.jvmmcp.core.attach.JvmAttachService attachService = new dev.jvmmcp.core.attach.JvmAttachService();
+            dev.jvmmcp.core.attach.AttachResult result = attachService.attach(String.valueOf(targetPid));
+            if (!result.isSuccessful()) {
+                System.err.println("[jvm-mcp] Error attaching to target PID " + targetPid + ": " + result.message());
+                System.exit(1);
+            }
+            System.err.println("[jvm-mcp] Successfully attached to target PID " + targetPid);
+        }
+
+        System.err.println("Starting jvm-mcp via transport: " + transport + "...");
     }
 }

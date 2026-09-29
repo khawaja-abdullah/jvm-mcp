@@ -8,7 +8,7 @@ import picocli.CommandLine.Command;
     mixinStandardHelpOptions = true,
     version = JvmMcp.VERSION,
     description = "Live JVM inspection via Model Context Protocol without target dependencies.",
-    subcommands = { ServeCommand.class }
+    subcommands = { ServeCommand.class, ListCommand.class }
 )
 public class JvmMcp implements Runnable {
     public static final String VERSION = "1.0.0-SNAPSHOT";
