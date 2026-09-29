@@ -4,10 +4,10 @@
 
 Only the latest release and active development branch receive security updates:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| 1.0.x   | Yes       |
+| < 1.0   | No        |
 
 ---
 
@@ -18,7 +18,7 @@ We take security seriously. If you discover a security vulnerability in `jvm-mcp
 1. **Do not open a public GitHub issue.**
 2. Report the vulnerability privately via **GitHub Private Vulnerability Reporting** on this repository:
    - Navigate to **Security** → **Advisories** → **Report a vulnerability**.
-   - Alternatively, email the maintainer directly at `oscarbolanos09@gmail.com` (or your preferred contact) with the subject `[SECURITY] JVM-MCP Vulnerability Report`.
+   - Alternatively, email the maintainer directly at `oscarbolanos09@gmail.com` with the subject `[SECURITY] JVM-MCP Vulnerability Report`.
 3. Include:
    - Steps to reproduce the issue.
    - Proof-of-concept code or minimal reproduction environment.
