@@ -1,31 +1,105 @@
 # JVM-MCP
 
-A native Model Context Protocol (MCP) server designed to inspect running JVM applications in real-time. 
+> **Servidor MCP nativo en Java para inspección en vivo de aplicaciones Spring Boot.**  
+> Dale a Claude, Cursor y Antigravity contexto real sobre memoria, threads y base de datos sin modificar el código de tu app.
 
-Zero dependencies on the target application. Powered by the JVM Attach API and compiled via GraalVM for <15ms startup times.
+[![CI](https://github.com/oscarbol09/jvm-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarbol09/jvm-mcp/actions/workflows/ci.yml)
+[![Java Version](https://img.shields.io/badge/Java-21+-007396?logo=openjdk&logoColor=white)](https://jdk.java.net/21/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Good First Issues](https://img.shields.io/github/issues/oscarbol09/jvm-mcp/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/oscarbol09/jvm-mcp/issues)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/oscarbol09)
+[![Support on Ko-Fi](https://img.shields.io/badge/Support-Ko--Fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/oscarmb09)
 
-## The Problem
+---
 
-If you use an AI coding assistant (Claude Desktop, Cursor) with a Java codebase, the LLM is completely blind to runtime context. It cannot see memory leaks, thread deadlocks, or actual Spring beans in memory. 
+## Tabla de Contenidos
 
-Existing solutions are either Node.js/Python wrappers that require Actuator HTTP exposure, or they rely on static code analysis. `jvm-mcp` connects directly to the JVM via the Attach API (`com.sun.tools.attach`) using just the process PID. It requires zero code changes in the target app.
+- [El Problema de la IA Ciega](#el-problema-de-la-ia-ciega)
+- [La Solución: Cero Fricción](#la-solución-cero-fricción)
+- [Herramientas Expuestas](#herramientas-expuestas)
+- [Principios de Arquitectura](#principios-de-arquitectura)
+- [Límites y Decisiones de Diseño (Trade-offs)](#límites-y-decisiones-de-diseño-trade-offs)
+- [Contribución](#contribución)
+- [Autor](#autor)
 
-## Features
+---
 
-* **Zero-instrumentation:** Attaches locally without needing a `-javaagent` at startup.
-* **Native Binary:** Distributed as a GraalVM native image. Fast startup, no JVM installation required on the client side.
-* **LLM-optimized:** Outputs structured JSON that AI models parse natively.
+## El Problema de la IA Ciega
 
-## Dual Architecture
+Todo desarrollador backend que trabaja con asistentes de IA en repositorios Java gigantes se topa con el mismo muro: **el código estático no es la realidad en ejecución**.
 
-This project deliberately avoids injecting Spring Boot into the default execution path to ensure immediate startup:
-1. **CLI Mode (`stdio`)**: Uses pure Java MCP SDK. Starts in <15ms. Intended for local IDE integration and standard MCP operations.
-2. **Web Mode (`--transport sse`)**: (Optional) Uses Spring AI MCP. Boot overhead of ~100ms. Intended for dashboard operations.
+```text
+1. Le preguntas a Claude: "¿Por qué el pago falla a veces?"
+2. La IA lee el código y dice: "El código luce correcto, podría ser un deadlock."
+3. Te frustras porque la IA no puede verificar el estado de los threads reales.
+4. Tienes que ir a la terminal, ejecutar `jstack <pid>`, copiar el chorro de texto,
+   pegarlo en el chat, y rogar que no te corte por límite de tokens.
+```
 
-## Known Limitations
+Las soluciones actuales son defectuosas: scripts en Python que analizan dumps en frío, o herramientas en Node.js que obligan a modificar el `pom.xml` de tu aplicación para agregar dependencias de Actuator o JMX remoto.
 
-* **OS Permissions:** The Attach API requires identical OS permissions. The target JVM and `jvm-mcp` must run under the same user UID. For cross-namespace operations (e.g., Docker containers), fallback to the `--actuator` HTTP mode.
-* **GraalVM Windows Support:** Due to `attach.dll` dynamic linking constraints, Windows distributions are packaged via `jpackage` (fat JAR + minimal JRE) yielding ~300ms startup times, whereas Linux/macOS ship as pure native binaries.
+---
 
-## Quick Start
-*(WIP: Build instructions and releases coming soon)*
+## La Solución: Cero Fricción
+
+**JVM-MCP** resuelve esto conectándose localmente a la JVM mediante la **Attach API** (`com.sun.tools.attach`). 
+
+Se distribuye como un único binario nativo que arranca en `< 15ms`. Sin instalar Node, sin scripts intermedios, y lo más importante: **sin tocar una sola línea de código en tu aplicación objetivo**.
+
+```
+┌───────────────────────────────────────┐
+│     Claude Desktop / Cursor / IDE     │
+└──────────────────┬────────────────────┘
+                   │ MCP Protocol (stdio)
+                   ▼
+┌───────────────────────────────────────┐
+│              jvm-mcp                  │ (Native Binary, < 15ms startup)
+└──────────────────┬────────────────────┘
+                   │ Attach API / JMX
+                   ▼
+┌───────────────────────────────────────┐
+│        Tu App Java (PID 45231)        │ (Sin dependencias adicionales)
+└───────────────────────────────────────┘
+```
+
+---
+
+## Herramientas Expuestas
+
+Una vez conectado, el LLM obtiene superpoderes de diagnóstico en tiempo real:
+
+* 🚀 **Contexto Spring Boot:** Lista beans instanciados (`list_spring_beans`) y detecta componentes que tardaron demasiado en inicializar.
+* 🧠 **Memoria y Heap:** Uso real del heap, recuento de pausas GC (`get_heap_summary`) y top N clases que más RAM consumen.
+* 🧵 **Threads & Concurrencia:** Extracción de *thread dumps* legibles y detección automática de *deadlocks*.
+* 🛢️ **HikariCP:** Inspecciona *connection leaks* o agotamiento del pool en vivo.
+* 🐘 **PostgreSQL:** Explora el esquema de la base de datos y detecta *slow queries* o índices faltantes (conexión directa JDBC).
+
+---
+
+## Principios de Arquitectura
+
+- **SDK Puro por defecto:** El modo CLI estándar está construido sobre el MCP SDK puro (`io.modelcontextprotocol.sdk:mcp`) vía Picocli, evadiendo el overhead de inicialización de Spring Boot para mantener el arranque por debajo de los 15ms.
+- **Inyección Transparente:** Usa un `DiagnosticAgent` empaquetado en recursos y extraído en caché local (`~/.cache/jvm-mcp/`) para inyectar *MBeans* si la aplicación destino no expone diagnóstico estándar.
+
+---
+
+## Límites y Decisiones de Diseño (Trade-offs)
+
+* **Restricción de OS Permissions:** Por seguridad del kernel, la *Attach API* exige que `jvm-mcp` y la aplicación objetivo se ejecuten bajo el mismo UID. Si tu app corre en Docker, la conexión directa del host fallará. Para estos escenarios, JVM-MCP expone un modo alternativo `--actuator http://localhost:8080`.
+* **Soporte Windows:** El empaquetado `native-image` de GraalVM en Windows sufre bloqueos con el enlazado dinámico de `attach.dll`. De forma pragmática, los releases de Linux y macOS son ejecutables nativos, mientras que en Windows se usa un Fat JAR embebido con JRE (`jpackage`), elevando el arranque a ~300ms, pero eliminando la fricción de instalación.
+
+---
+
+## Contribución
+
+Si quieres agregar herramientas, revisar `CONTRIBUTING.md`.
+
+---
+
+## Autor
+
+Creado por **Oscar**.
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/oscarbol09)
+[![Support on Ko-Fi](https://img.shields.io/badge/Support-Ko--Fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/oscarmb09)
