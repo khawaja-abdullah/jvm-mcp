@@ -20,8 +20,9 @@
 - [Herramientas Expuestas](#herramientas-expuestas)
 - [Principios de Arquitectura](#principios-de-arquitectura)
 - [Límites y Decisiones de Diseño (Trade-offs)](#límites-y-decisiones-de-diseño-trade-offs)
-- [Contribución](#contribución)
-- [Autor](#autor)
+- [Comunidad y Contribución](#comunidad-y-contribución)
+- [Citación](#citación)
+- [Licencia](#licencia)
 
 ---
 
@@ -102,9 +103,23 @@ JVM-MCP es un proyecto de código abierto impulsado por la comunidad. Consulta n
 
 ---
 
-## Autor
+## Citación
 
-Creado por **Oscar**.
+Si utilizas JVM-MCP en tu trabajo, herramientas de desarrollo o investigación, puedes citar el repositorio como:
 
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/oscarbol09)
-[![Support on Ko-Fi](https://img.shields.io/badge/Support-Ko--Fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/oscarmb09)
+```bibtex
+@software{jvmmcp2026,
+  author = {oscarbol09 and contributors},
+  title = {JVM-MCP: Native Model Context Protocol Server for Live JVM and Spring Boot Runtime Diagnostics},
+  url = {https://github.com/oscarbol09/jvm-mcp},
+  year = {2026}
+}
+```
+
+---
+
+## Licencia
+
+Este proyecto está distribuido bajo los términos de la licencia **MIT**. Consulta el archivo [`LICENSE`](LICENSE) para más detalles.
+
+Copyright (c) 2026 oscarbol09 / JVM-MCP Contributors.
