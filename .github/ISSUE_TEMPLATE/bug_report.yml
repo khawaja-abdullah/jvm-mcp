@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report a reproducible bug or unexpected failure in JVM-MCP
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting an issue! Please provide sufficient context so we can reproduce it locally.
+  - type: input
+    id: version
+    attributes:
+      label: JVM-MCP Version / Commit
+      description: What version or git commit hash are you using?
+      placeholder: e.g. 1.0.0-SNAPSHOT (commit 9040a04)
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating System & JVM Version
+      description: OS distribution and Java runtime version of both jvm-mcp and the target app.
+      placeholder: e.g. Ubuntu 24.04 / Temurin JDK 21.0.3 / Target app Spring Boot 3.3.2
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Detail the exact steps, command lines, or prompts used.
+      placeholder: |
+        1. Run target app with `java -jar app.jar` (PID 12345)
+        2. Run `jvm-mcp serve --attach 12345`
+        3. Observe error output
+    validations:
+      required: true
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What happened instead? Include relevant stack traces or log lines.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true

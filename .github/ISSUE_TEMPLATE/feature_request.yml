@@ -1,0 +1,31 @@
+name: Feature / Tool Request
+description: Propose a new MCP tool or runtime diagnostic capability
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Have an idea for a new JVM diagnostic tool, MBean inspection, or framework integration? Let us know!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What diagnostic blindspot or runtime friction does this solve?
+      placeholder: e.g. Claude cannot inspect Lettuce Redis connection metrics when debugging timeout spikes.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution & Tool Name
+      description: Describe the proposed tool name, input arguments, and diagnostic source (MBean, Attach API, Actuator).
+      placeholder: |
+        Tool Name: `get_redis_metrics(pid: int)`
+        Source MBean: `io.lettuce.core:type=RedisClient`
+        Output: Active connections, command latency avg, reconnect count.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What workaround or manual commands are currently used?

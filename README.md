@@ -91,9 +91,14 @@ Una vez conectado, el LLM obtiene superpoderes de diagnóstico en tiempo real:
 
 ---
 
-## Contribución
+## Comunidad y Contribución
 
-Si quieres agregar herramientas, revisar `CONTRIBUTING.md`.
+JVM-MCP es un proyecto de código abierto impulsado por la comunidad. Consulta nuestra documentación de gobernanza:
+
+* 🗺️ **[ROADMAP.md](ROADMAP.md):** Hitos activos y áreas abiertas a contribución marcadas como `good first issue` y `help wanted`.
+* 🛠️ **[CONTRIBUTING.md](CONTRIBUTING.md):** Guía de configuración local, arquitectura de módulos y cómo implementar un nuevo MCP Tool.
+* 🛡️ **[SECURITY.md](SECURITY.md):** Política de divulgación responsable de vulnerabilidades.
+* 🤝 **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md):** Estándares de conducta de la comunidad (Contributor Covenant).
 
 ---
 
