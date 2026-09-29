@@ -1,7 +1,7 @@
 # JVM-MCP
 
-> **Servidor MCP nativo en Java para inspección en vivo de aplicaciones Spring Boot.**  
-> Dale a Claude, Cursor y Antigravity contexto real sobre memoria, threads y base de datos sin modificar el código de tu app.
+> **Native Java Model Context Protocol (MCP) server for live Spring Boot inspection.**  
+> Provide Claude, Cursor, and Antigravity with real-time context on memory, threads, and database state without modifying your application code.
 
 [![CI](https://github.com/oscarbol09/jvm-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarbol09/jvm-mcp/actions/workflows/ci.yml)
 [![Java Version](https://img.shields.io/badge/Java-21+-007396?logo=openjdk&logoColor=white)](https://jdk.java.net/21/)
@@ -13,39 +13,39 @@
 
 ---
 
-## Tabla de Contenidos
+## Table of Contents
 
-- [El Problema de la IA Ciega](#el-problema-de-la-ia-ciega)
-- [La Solución: Cero Fricción](#la-solución-cero-fricción)
-- [Herramientas Expuestas](#herramientas-expuestas)
-- [Principios de Arquitectura](#principios-de-arquitectura)
-- [Límites y Decisiones de Diseño (Trade-offs)](#límites-y-decisiones-de-diseño-trade-offs)
-- [Comunidad y Contribución](#comunidad-y-contribución)
-- [Licencia](#licencia)
+- [The Blind AI Assistant Problem](#the-blind-ai-assistant-problem)
+- [The Solution: Zero Friction](#the-solution-zero-friction)
+- [Exposed Tools](#exposed-tools)
+- [Architectural Principles](#architectural-principles)
+- [Known Limitations and Trade-offs](#known-limitations-and-trade-offs)
+- [Community and Contributing](#community-and-contributing)
+- [License](#license)
 
 ---
 
-## El Problema de la IA Ciega
+## The Blind AI Assistant Problem
 
-Todo desarrollador backend que trabaja con asistentes de IA en repositorios Java gigantes se topa con el mismo muro: **el código estático no es la realidad en ejecución**.
+Every backend engineer debugging complex Java applications with AI assistants hits the same wall: **static source code does not reflect the live runtime state**.
 
 ```text
-1. Le preguntas a Claude: "¿Por qué el pago falla a veces?"
-2. La IA lee el código y dice: "El código luce correcto, podría ser un deadlock."
-3. Te frustras porque la IA no puede verificar el estado de los threads reales.
-4. Tienes que ir a la terminal, ejecutar `jstack <pid>`, copiar el texto,
-   pegarlo en el chat, y lidiar con límites de contexto.
+1. You ask Claude: "Why is the payment service timing out intermittently?"
+2. The model inspects the code: "The logic looks fine, it might be a thread deadlock."
+3. You cannot verify actual runtime thread state without leaving your editor.
+4. You switch to terminal, execute `jstack <pid>`, copy the raw dump,
+   paste it into chat, and struggle with context token limits.
 ```
 
-Las soluciones actuales son defectuosas: scripts en Python que analizan dumps en frío, o herramientas en Node.js que obligan a modificar el `pom.xml` de tu aplicación para agregar dependencias de Actuator o JMX remoto.
+Existing diagnostic approaches have significant drawbacks: Python scripts analyzing manual post-mortem dumps, or Node.js tools requiring developers to modify target `pom.xml` files to expose Actuator endpoints or remote JMX.
 
 ---
 
-## La Solución: Cero Fricción
+## The Solution: Zero Friction
 
-**JVM-MCP** resuelve esto conectándose localmente a la JVM mediante la **Attach API** (`com.sun.tools.attach`). 
+**JVM-MCP** bridges this gap by attaching locally to the target JVM using the JDK **Attach API** (`com.sun.tools.attach`).
 
-Se distribuye como un único binario nativo que arranca en `< 15ms`. Sin instalar Node, sin scripts intermedios, y lo más importante: **sin tocar una sola línea de código en tu aplicación objetivo**.
+Distributed as a standalone native binary starting in `< 15ms`. No Node.js runtime required, no intermediate scripts, and critically: **zero modifications to your target application code**.
 
 ```
 ┌───────────────────────────────────────┐
@@ -59,51 +59,51 @@ Se distribuye como un único binario nativo que arranca en `< 15ms`. Sin instala
                    │ Attach API / JMX
                    ▼
 ┌───────────────────────────────────────┐
-│        Tu App Java (PID 45231)        │ (Sin dependencias adicionales)
+│       Target Java App (PID 45231)     │ (No custom dependencies required)
 └───────────────────────────────────────┘
 ```
 
 ---
 
-## Herramientas Expuestas
+## Exposed Tools
 
-Una vez conectado, el LLM obtiene contexto diagnóstico en tiempo real:
+Once attached, the LLM gains real-time diagnostic visibility:
 
-- **Contexto Spring Boot:** Lista beans instanciados (`list_spring_beans`) y detecta componentes que tardaron demasiado en inicializar.
-- **Memoria y Heap:** Uso real del heap, recuento de pausas GC (`get_heap_summary`) y top N clases que más RAM consumen.
-- **Threads y Concurrencia:** Extracción de thread dumps legibles y detección automática de deadlocks.
-- **HikariCP:** Inspecciona connection leaks o agotamiento del pool en vivo.
-- **PostgreSQL:** Explora el esquema de la base de datos y detecta slow queries o índices faltantes (conexión directa JDBC).
-
----
-
-## Principios de Arquitectura
-
-- **SDK Puro por defecto:** El modo CLI estándar está construido sobre el MCP SDK puro (`io.modelcontextprotocol.sdk:mcp`) vía Picocli, evadiendo el overhead de inicialización de Spring Boot para mantener el arranque por debajo de los 15ms.
-- **Inyección Transparente:** Usa un `DiagnosticAgent` empaquetado en recursos y extraído en caché local (`~/.cache/jvm-mcp/`) para inyectar MBeans si la aplicación destino no expone diagnóstico estándar.
+- **Spring Boot Context:** Inspect instantiated beans (`list_spring_beans`) and identify slow bean initialization durations.
+- **Memory & Heap:** Live heap region usage, GC pause counters (`get_heap_summary`), and top class instance counts.
+- **Threads & Concurrency:** Clean, LLM-formatted thread dumps and automated deadlock cycle detection.
+- **HikariCP:** Live connection pool metrics, connection leaks, and saturation alerts.
+- **PostgreSQL:** Direct JDBC database schema introspection, sequential scan table stats, and slow query identification.
 
 ---
 
-## Límites y Decisiones de Diseño (Trade-offs)
+## Architectural Principles
 
-- **Restricción de OS Permissions:** Por seguridad del kernel, la Attach API exige que `jvm-mcp` y la aplicación objetivo se ejecuten bajo el mismo UID. Si tu app corre en Docker, la conexión directa del host fallará. Para estos escenarios, JVM-MCP expone un modo alternativo `--actuator http://localhost:8080`.
-- **Soporte Windows:** El empaquetado `native-image` de GraalVM en Windows sufre bloqueos con el enlazado dinámico de `attach.dll`. De forma pragmática, los releases de Linux y macOS son ejecutables nativos, mientras que en Windows se usa un Fat JAR embebido con JRE (`jpackage`), elevando el arranque a ~300ms, pero eliminando la fricción de instalación.
-
----
-
-## Comunidad y Contribución
-
-JVM-MCP es un proyecto de código abierto impulsado por la comunidad. Consulta nuestra documentación de gobernanza:
-
-- [ROADMAP.md](ROADMAP.md): Hitos activos y áreas abiertas a contribución marcadas como `good first issue` y `help wanted`.
-- [CONTRIBUTING.md](CONTRIBUTING.md): Guía de configuración local, arquitectura de módulos y cómo implementar un nuevo MCP Tool.
-- [SECURITY.md](SECURITY.md): Política de divulgación responsable de vulnerabilidades.
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): Estándares de conducta de la comunidad (Contributor Covenant).
+- **Pure SDK CLI by Default:** The default CLI operates directly on the pure Java MCP SDK (`io.modelcontextprotocol.sdk:mcp`) via Picocli, avoiding Spring Boot bootstrap overhead to keep cold starts under 15ms.
+- **Transparent Injection:** Bundles a `DiagnosticAgent` in internal resources, extracting it on demand to local user cache (`~/.cache/jvm-mcp/`) with SHA-256 verification when MBeans need to be loaded.
 
 ---
 
-## Licencia
+## Known Limitations and Trade-offs
 
-Este proyecto está distribuido bajo los términos de la licencia **MIT**. Consulta el archivo [`LICENSE`](LICENSE) para más detalles.
+- **OS Permission Boundaries:** By kernel design, the JDK Attach API requires `jvm-mcp` to run with matching UID permissions as the target JVM. If your target app runs inside an isolated Docker container, direct host attachment will fail. In those environments, use the `--actuator http://localhost:8080` mode or attach from within the container namespace.
+- **Windows Packaging:** Native Image dynamic linking with `attach.dll` on Windows has known runtime constraints. Pragmatically, Linux and macOS distribute as pure GraalVM native binaries, while Windows ships as a zero-dependency self-contained executable via `jpackage` (~300ms startup).
+
+---
+
+## Community and Contributing
+
+JVM-MCP is an open-source project welcoming community contributions. Review our governance documentation:
+
+- [ROADMAP.md](ROADMAP.md): Active development milestones and open issues labeled `good first issue` and `help wanted`.
+- [CONTRIBUTING.md](CONTRIBUTING.md): Local environment setup, module architecture, and guide on implementing new MCP tools.
+- [SECURITY.md](SECURITY.md): Vulnerability reporting policy and response timelines.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): Community standards (Contributor Covenant).
+
+---
+
+## License
+
+This project is licensed under the terms of the **MIT License**. See the [`LICENSE`](LICENSE) file for details.
 
 Copyright (c) 2026 oscarbol09 / JVM-MCP Contributors.
