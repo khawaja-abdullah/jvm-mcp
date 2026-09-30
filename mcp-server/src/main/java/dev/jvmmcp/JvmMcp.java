@@ -12,7 +12,8 @@ import picocli.CommandLine.Command;
         ServeCommand.class, 
         ListCommand.class, 
         MemoryCommand.class, 
-        ThreadsCommand.class 
+        ThreadsCommand.class,
+        BeansCommand.class
     }
 )
 public class JvmMcp implements Runnable {

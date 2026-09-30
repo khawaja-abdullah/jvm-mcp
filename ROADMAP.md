@@ -30,24 +30,29 @@ This roadmap outlines current development milestones, architectural priorities, 
 
 ---
 
-## Active Milestone: Phase 3 — Spring Beans Inspector (In Progress)
+- [x] **Phase 3: Spring Beans Inspector**
+  - ApplicationContext bean hierarchy inspection (`SpringBeansClient`).
+  - Dual-strategy discovery: Actuator HTTP discovery (`/actuator/beans`) with automatic JMX fallback (`org.springframework.boot:type=Endpoint,name=Beans`).
+  - Case-insensitive glob filtering (`*Service*`, `*Repository*`, `*Controller*`).
+  - Direct dependency graph and scope inspection (`jvm-mcp beans <pid> [--filter] [--detail]`).
+  - Zero-dependency JSON parser engine (`SimpleJson`).
 
-- [ ] **Spring Context Introspection (`dev.jvmmcp.core.spring.SpringBeansClient`)**
-  - Connect to Spring Boot JMX MBean (`org.springframework.boot:type=Endpoint,name=Beans`).
-  - Fast actuator HTTP fallback probe (`/actuator/beans`).
-  - Glob filtering (`*Service*`, `*Repository*`).
+---
+
+## Active Milestone: Phase 4 — HikariCP Connection Pool Inspector (In Progress)
+
+- [ ] **Database Connection Pool Diagnostics (`dev.jvmmcp.core.hikari.HikariMXBeanClient`)**
+  - Query `com.zaxxer.hikari:type=Pool (*)` MBeans across single and multi-datasource architectures.
+  - Live metric extraction: active, idle, pending connections, max pool size, acquire latency.
+  - Saturation ratio calculation and automated leak/exhaustion diagnostics.
+
 ---
 
 ## Upcoming Community Milestones (Open for Contributions)
 
 The following areas are ideal for external contributors looking to claim an issue:
 
-### 1. Spring Beans Inspector (Phase 3) — `help wanted`
-- [ ] Query `com.zaxxer.hikari:type=Pool (*)` MBeans.
-- [ ] Calculate pool saturation ratio (`active / max`) and acquire latency warnings.
-- [ ] Multi-datasource support (handling multiple distinct Hikari pools in a single JVM).
-
-### 3. PostgreSQL Schema & Stat Inspector (Phase 5) — `help wanted`
+### 1. PostgreSQL Schema & Stat Inspector (Phase 5) — `help wanted`
 - [ ] Pure JDBC metadata reader for table sizes, column definitions, and foreign keys.
 - [ ] Query `pg_stat_user_tables` to identify sequential scan bottlenecks.
 - [ ] Query `pg_stat_statements` for slow execution queries.
