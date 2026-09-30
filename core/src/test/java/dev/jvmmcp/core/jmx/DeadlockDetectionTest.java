@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,7 +17,8 @@ class DeadlockDetectionTest {
 
     private JmxConnectionManager connectionManager;
     private ThreadMXBeanClient threadClient;
-    private final AtomicBoolean running = new AtomicBoolean(true);
+    private Thread worker1;
+    private Thread worker2;
 
     @BeforeEach
     void setUp() {
@@ -26,61 +27,78 @@ class DeadlockDetectionTest {
     }
 
     @AfterEach
-    void tearDown() {
-        running.set(false);
+    void tearDown() throws Exception {
+        if (worker1 != null) {
+            worker1.interrupt();
+        }
+        if (worker2 != null) {
+            worker2.interrupt();
+        }
+        if (worker1 != null) {
+            worker1.join(1000);
+        }
+        if (worker2 != null) {
+            worker2.join(1000);
+        }
         if (connectionManager != null) {
             connectionManager.close();
         }
     }
 
     @Test
-    @DisplayName("detectDeadlocks should accurately identify circular lock chains and owners without flakiness")
+    @DisplayName("detectDeadlocks should accurately identify circular lock chains and clean up cleanly")
     void shouldDetectCircularDeadlock() throws Exception {
-        Object lockA = new Object();
-        Object lockB = new Object();
+        ReentrantLock lockA = new ReentrantLock();
+        ReentrantLock lockB = new ReentrantLock();
 
         CountDownLatch thread1AcquiredLockA = new CountDownLatch(1);
         CountDownLatch thread2AcquiredLockB = new CountDownLatch(1);
 
-        Thread thread1 = new Thread(() -> {
-            synchronized (lockA) {
-                thread1AcquiredLockA.countDown();
+        worker1 = new Thread(() -> {
+            try {
+                lockA.lockInterruptibly();
                 try {
+                    thread1AcquiredLockA.countDown();
                     thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
-                    Thread.sleep(20);
-                } catch (InterruptedException ignored) {}
-                synchronized (lockB) {
-                    while (running.get()) {
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException ignored) {}
+                    lockB.lockInterruptibly();
+                    try {
+                        // Deadlocked region
+                    } finally {
+                        lockB.unlock();
                     }
+                } finally {
+                    lockA.unlock();
                 }
+            } catch (InterruptedException ignored) {
+                // Unblock cleanly on tearDown
             }
         }, "Deadlock-Worker-1");
 
-        Thread thread2 = new Thread(() -> {
-            synchronized (lockB) {
-                thread2AcquiredLockB.countDown();
+        worker2 = new Thread(() -> {
+            try {
+                lockB.lockInterruptibly();
                 try {
+                    thread2AcquiredLockB.countDown();
                     thread1AcquiredLockA.await(5, TimeUnit.SECONDS);
-                    Thread.sleep(20);
-                } catch (InterruptedException ignored) {}
-                synchronized (lockA) {
-                    while (running.get()) {
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException ignored) {}
+                    lockA.lockInterruptibly();
+                    try {
+                        // Deadlocked region
+                    } finally {
+                        lockA.unlock();
                     }
+                } finally {
+                    lockB.unlock();
                 }
+            } catch (InterruptedException ignored) {
+                // Unblock cleanly on tearDown
             }
         }, "Deadlock-Worker-2");
 
-        thread1.setDaemon(true);
-        thread2.setDaemon(true);
+        worker1.setDaemon(true);
+        worker2.setDaemon(true);
 
-        thread1.start();
-        thread2.start();
+        worker1.start();
+        worker2.start();
 
         // Wait until both threads have started and acquired their initial locks
         boolean acquired = thread1AcquiredLockA.await(5, TimeUnit.SECONDS) && thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
