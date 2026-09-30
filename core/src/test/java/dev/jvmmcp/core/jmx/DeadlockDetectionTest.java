@@ -1,6 +1,7 @@
 package dev.jvmmcp.core.jmx;
 
 import dev.jvmmcp.core.model.DeadlockReport;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +34,7 @@ class DeadlockDetectionTest {
     }
 
     @Test
-    @DisplayName("detectDeadlocks should accurately identify circular lock chains and owners")
+    @DisplayName("detectDeadlocks should accurately identify circular lock chains and owners without flakiness")
     void shouldDetectCircularDeadlock() throws Exception {
         Object lockA = new Object();
         Object lockB = new Object();
@@ -46,7 +47,7 @@ class DeadlockDetectionTest {
                 thread1AcquiredLockA.countDown();
                 try {
                     thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
-                    Thread.sleep(50);
+                    Thread.sleep(20);
                 } catch (InterruptedException ignored) {}
                 synchronized (lockB) {
                     while (running.get()) {
@@ -63,7 +64,7 @@ class DeadlockDetectionTest {
                 thread2AcquiredLockB.countDown();
                 try {
                     thread1AcquiredLockA.await(5, TimeUnit.SECONDS);
-                    Thread.sleep(50);
+                    Thread.sleep(20);
                 } catch (InterruptedException ignored) {}
                 synchronized (lockA) {
                     while (running.get()) {
@@ -81,25 +82,28 @@ class DeadlockDetectionTest {
         thread1.start();
         thread2.start();
 
-        // Wait until both threads are blocked waiting for each other's locks
+        // Wait until both threads have started and acquired their initial locks
         boolean acquired = thread1AcquiredLockA.await(5, TimeUnit.SECONDS) && thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
         assertThat(acquired).isTrue();
 
-        // Allow time for the threads to transition to BLOCKED state
-        Thread.sleep(300);
+        // Condition-based polling with Awaitility to eliminate timing flakiness in CI
+        Awaitility.await()
+            .atMost(5, TimeUnit.SECONDS)
+            .pollInterval(50, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> {
+                DeadlockReport report = threadClient.detectDeadlocks();
 
-        DeadlockReport report = threadClient.detectDeadlocks();
+                assertThat(report).isNotNull();
+                assertThat(report.status()).isEqualTo("DETECTED");
+                assertThat(report.deadlockCount()).isGreaterThanOrEqualTo(2);
+                assertThat(report.chain()).hasSizeGreaterThanOrEqualTo(2);
+                assertThat(report.recommendation()).contains("Deadlock detected");
 
-        assertThat(report).isNotNull();
-        assertThat(report.status()).isEqualTo("DETECTED");
-        assertThat(report.deadlockCount()).isGreaterThanOrEqualTo(2);
-        assertThat(report.chain()).hasSizeGreaterThanOrEqualTo(2);
-        assertThat(report.recommendation()).contains("Deadlock detected");
+                boolean containsThread1 = report.chain().stream().anyMatch(d -> "Deadlock-Worker-1".equals(d.threadName()));
+                boolean containsThread2 = report.chain().stream().anyMatch(d -> "Deadlock-Worker-2".equals(d.threadName()));
 
-        boolean containsThread1 = report.chain().stream().anyMatch(d -> "Deadlock-Worker-1".equals(d.threadName()));
-        boolean containsThread2 = report.chain().stream().anyMatch(d -> "Deadlock-Worker-2".equals(d.threadName()));
-
-        assertThat(containsThread1).isTrue();
-        assertThat(containsThread2).isTrue();
+                assertThat(containsThread1).isTrue();
+                assertThat(containsThread2).isTrue();
+            });
     }
 }
