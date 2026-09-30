@@ -12,6 +12,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
 @Command(
     name = "beans",
@@ -19,7 +20,7 @@ import java.util.Optional;
     description = "Inspects live Spring Boot ApplicationContext beans, scopes, types, and dependency graphs",
     mixinStandardHelpOptions = true
 )
-public class BeansCommand implements Runnable {
+public class BeansCommand implements Callable<Integer> {
 
     @Parameters(index = "0", defaultValue = "0", description = "Target JVM Process ID (PID). Omit if using --actuator.")
     long pid;
@@ -34,7 +35,7 @@ public class BeansCommand implements Runnable {
     String actuatorUrl;
 
     @Override
-    public void run() {
+    public Integer call() {
         SpringBeansClient client = new SpringBeansClient();
         SpringBeansReport report;
 
@@ -43,8 +44,7 @@ public class BeansCommand implements Runnable {
         } else {
             if (pid <= 0) {
                 System.err.println("[jvm-mcp] Error: Specify a valid target PID or pass --actuator <url>");
-                System.exit(1);
-                return;
+                return 1;
             }
 
             JvmAttachService attachService = new JvmAttachService();
@@ -52,8 +52,7 @@ public class BeansCommand implements Runnable {
 
             if (!attachResult.isSuccessful()) {
                 System.err.println("[jvm-mcp] " + attachResult.message());
-                System.exit(1);
-                return;
+                return 1;
             }
 
             try (JmxConnectionManager jmxManager = attachResult.virtualMachine().isPresent()
@@ -68,15 +67,15 @@ public class BeansCommand implements Runnable {
                 );
             } catch (Exception e) {
                 System.err.println("[jvm-mcp] Error inspecting Spring beans: " + e.getMessage());
-                System.exit(1);
-                return;
+                return 1;
             }
         }
 
         if (detailBeanName != null && !detailBeanName.isBlank()) {
-            printBeanDetail(client, report, detailBeanName);
+            return printBeanDetail(client, report, detailBeanName);
         } else {
             printBeansOverview(report);
+            return 0;
         }
     }
 
@@ -119,13 +118,12 @@ public class BeansCommand implements Runnable {
         }
     }
 
-    private void printBeanDetail(SpringBeansClient client, SpringBeansReport report, String beanName) {
+    private int printBeanDetail(SpringBeansClient client, SpringBeansReport report, String beanName) {
         Optional<SpringBeanDetail> detailOpt = client.getBeanDetail(report, beanName);
 
         if (detailOpt.isEmpty()) {
             System.err.printf("[jvm-mcp] Bean '%s' not found in active contexts.%n", beanName);
-            System.exit(1);
-            return;
+            return 1;
         }
 
         SpringBeanDetail bean = detailOpt.get();
@@ -145,6 +143,7 @@ public class BeansCommand implements Runnable {
                 System.out.println("  -> " + dep);
             }
         }
+        return 0;
     }
 
     private String truncate(String text, int max) {

@@ -10,6 +10,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
 @Command(
     name = "threads",
@@ -17,7 +18,7 @@ import java.util.List;
     description = "Inspects JVM thread states, captures thread dumps, and detects circular deadlocks",
     mixinStandardHelpOptions = true
 )
-public class ThreadsCommand implements Runnable {
+public class ThreadsCommand implements Callable<Integer> {
 
     @Parameters(index = "0", description = "Target JVM Process ID (PID)")
     long pid;
@@ -32,13 +33,18 @@ public class ThreadsCommand implements Runnable {
     boolean blockedOnly;
 
     @Override
-    public void run() {
+    public Integer call() {
+        if (pid <= 0) {
+            System.err.println("[jvm-mcp] Error: A valid target PID must be specified.");
+            return 1;
+        }
+
         JvmAttachService attachService = new JvmAttachService();
         AttachResult attachResult = attachService.attach(String.valueOf(pid));
 
         if (!attachResult.isSuccessful()) {
             System.err.println("[jvm-mcp] " + attachResult.message());
-            System.exit(1);
+            return 1;
         }
 
         try (JmxConnectionManager jmxManager = attachResult.virtualMachine().isPresent() 
@@ -49,25 +55,26 @@ public class ThreadsCommand implements Runnable {
 
             if (deadlocksOnly) {
                 printDeadlocks(client);
-                return;
+                return 0;
             }
 
             if (blockedOnly) {
                 printBlockedThreads(client);
-                return;
+                return 0;
             }
 
             if (dump) {
                 printThreadDump(client);
-                return;
+                return 0;
             }
 
             printThreadSummary(client);
             printDeadlocks(client);
+            return 0;
 
         } catch (Exception e) {
             System.err.println("[jvm-mcp] Error querying thread metrics: " + e.getMessage());
-            System.exit(1);
+            return 1;
         }
     }
 

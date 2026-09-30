@@ -5,6 +5,7 @@ import dev.jvmmcp.core.model.JvmProcess;
 import picocli.CommandLine.Command;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
 @Command(
     name = "list",
@@ -12,16 +13,16 @@ import java.util.List;
     description = "Lists all running Java Virtual Machines on the host",
     mixinStandardHelpOptions = true
 )
-public class ListCommand implements Runnable {
+public class ListCommand implements Callable<Integer> {
 
     @Override
-    public void run() {
+    public Integer call() {
         JvmAttachService service = new JvmAttachService();
         List<JvmProcess> jvms = service.listJvms();
 
         if (jvms.isEmpty()) {
             System.out.println("No running JVM processes discovered.");
-            return;
+            return 0;
         }
 
         System.out.printf("%-10s %-16s %-30s %s%n", "PID", "FRAMEWORK", "MAIN CLASS", "DISPLAY NAME");
@@ -40,5 +41,6 @@ public class ListCommand implements Runnable {
                 jvm.displayName()
             );
         }
+        return 0;
     }
 }

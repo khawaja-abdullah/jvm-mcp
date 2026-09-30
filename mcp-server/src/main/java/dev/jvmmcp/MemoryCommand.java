@@ -13,13 +13,15 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import java.util.concurrent.Callable;
+
 @Command(
     name = "memory",
     aliases = {"heap", "mem"},
     description = "Inspects JVM heap memory, pool regions, GC metrics, and allocation pressure",
     mixinStandardHelpOptions = true
 )
-public class MemoryCommand implements Runnable {
+public class MemoryCommand implements Callable<Integer> {
 
     @Parameters(index = "0", description = "Target JVM Process ID (PID)")
     long pid;
@@ -31,13 +33,18 @@ public class MemoryCommand implements Runnable {
     int topN;
 
     @Override
-    public void run() {
+    public Integer call() {
+        if (pid <= 0) {
+            System.err.println("[jvm-mcp] Error: A valid target PID must be specified.");
+            return 1;
+        }
+
         JvmAttachService attachService = new JvmAttachService();
         AttachResult attachResult = attachService.attach(String.valueOf(pid));
 
         if (!attachResult.isSuccessful()) {
             System.err.println("[jvm-mcp] " + attachResult.message());
-            System.exit(1);
+            return 1;
         }
 
         try (JmxConnectionManager jmxManager = attachResult.virtualMachine().isPresent() 
@@ -91,13 +98,14 @@ public class MemoryCommand implements Runnable {
                         );
                     }
                 } catch (Exception e) {
-                    System.err.println("Could not extract live heap histogram: " + e.getMessage());
+                    System.err.println("[jvm-mcp] Could not extract live heap histogram: " + e.getMessage());
                 }
             }
+            return 0;
 
         } catch (Exception e) {
             System.err.println("[jvm-mcp] Error querying memory metrics: " + e.getMessage());
-            System.exit(1);
+            return 1;
         }
     }
 }

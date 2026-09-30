@@ -1,14 +1,18 @@
 package dev.jvmmcp;
 
+import dev.jvmmcp.core.attach.AttachResult;
+import dev.jvmmcp.core.attach.JvmAttachService;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+
+import java.util.concurrent.Callable;
 
 @Command(
     name = "serve",
     description = "Starts the JVM-MCP server",
     mixinStandardHelpOptions = true
 )
-public class ServeCommand implements Runnable {
+public class ServeCommand implements Callable<Integer> {
 
     @Option(names = "--transport", defaultValue = "stdio", description = "Transport protocol: stdio or sse")
     String transport;
@@ -23,22 +27,23 @@ public class ServeCommand implements Runnable {
     String actuatorUrl;
 
     @Override
-    public void run() {
+    public Integer call() {
         if ("sse".equalsIgnoreCase(transport) || useSpring) {
-            System.err.println("Spring layer not yet implemented. Please use stdio transport.");
-            System.exit(1);
+            System.err.println("[jvm-mcp] Spring layer not yet implemented. Please use stdio transport.");
+            return 1;
         }
 
         if (targetPid != null) {
-            dev.jvmmcp.core.attach.JvmAttachService attachService = new dev.jvmmcp.core.attach.JvmAttachService();
-            dev.jvmmcp.core.attach.AttachResult result = attachService.attach(String.valueOf(targetPid));
+            JvmAttachService attachService = new JvmAttachService();
+            AttachResult result = attachService.attach(String.valueOf(targetPid));
             if (!result.isSuccessful()) {
                 System.err.println("[jvm-mcp] Error attaching to target PID " + targetPid + ": " + result.message());
-                System.exit(1);
+                return 1;
             }
             System.err.println("[jvm-mcp] Successfully attached to target PID " + targetPid);
         }
 
-        System.err.println("Starting jvm-mcp via transport: " + transport + "...");
+        System.err.println("[jvm-mcp] Starting server via transport: " + transport + "...");
+        return 0;
     }
 }
