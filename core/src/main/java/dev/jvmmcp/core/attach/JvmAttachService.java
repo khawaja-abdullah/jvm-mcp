@@ -88,16 +88,30 @@ public class JvmAttachService {
         }
     }
 
-    private String extractMainClass(String displayName) {
+    String extractMainClass(String displayName) {
         if (displayName == null || displayName.isBlank()) {
             return "Unknown";
         }
+
         String[] parts = displayName.trim().split("\\s+");
         String first = parts[0];
-        if (first.endsWith(".jar")) {
-            int lastSlash = Math.max(first.lastIndexOf('/'), first.lastIndexOf('\\'));
-            return lastSlash >= 0 ? first.substring(lastSlash + 1) : first;
+
+        if ("-jar".equalsIgnoreCase(first)) {
+            if (parts.length > 1) {
+                return stripJarPath(parts[1]);
+            }
+            return "Unknown";
         }
+
+        if (first.toLowerCase().endsWith(".jar")) {
+            return stripJarPath(first);
+        }
+
         return first;
+    }
+
+    private String stripJarPath(String token) {
+        int lastSlash = Math.max(token.lastIndexOf('/'), token.lastIndexOf('\\'));
+        return lastSlash >= 0 ? token.substring(lastSlash + 1) : token;
     }
 }
