@@ -55,4 +55,29 @@ class JvmAttachServiceTest {
         assertThat(result.isSuccessful()).isFalse();
         assertThat(result.status()).isEqualTo(AttachStatus.GENERIC_ERROR);
     }
+
+    private String invokeExtractMainClass(String displayName) throws Exception {
+        java.lang.reflect.Method m = JvmAttachService.class.getDeclaredMethod("extractMainClass", String.class);
+        m.setAccessible(true);
+        return (String) m.invoke(attachService, displayName);
+    }
+
+    @Test
+    @DisplayName("extractMainClass handles '-jar target/demo.jar' -> 'demo.jar'")
+    void extractMainClassHandlesJarWithPath() throws Exception {
+        assertThat(invokeExtractMainClass("-jar target/demo.jar")).isEqualTo("demo.jar");
+    }
+
+    @Test
+    @DisplayName("extractMainClass handles '-jar demo.jar' -> 'demo.jar'")
+    void extractMainClassHandlesJarSimple() throws Exception {
+        assertThat(invokeExtractMainClass("-jar demo.jar")).isEqualTo("demo.jar");
+    }
+
+    @Test
+    @DisplayName("extractMainClass returns main class when followed by JVM args")
+    void extractMainClassHandlesMainWithArgs() throws Exception {
+        assertThat(invokeExtractMainClass("org.example.Application --spring.profiles.active=dev")).isEqualTo("org.example.Application");
+    }
+
 }

@@ -93,11 +93,15 @@ public class JvmAttachService {
             return "Unknown";
         }
         String[] parts = displayName.trim().split("\\s+");
-        String first = parts[0];
-        if (first.endsWith(".jar")) {
-            int lastSlash = Math.max(first.lastIndexOf('/'), first.lastIndexOf('\\'));
-            return lastSlash >= 0 ? first.substring(lastSlash + 1) : first;
+        for (String token : parts) {
+            if ("-jar".equals(token)) {
+                continue;
+            }
+            if (token.toLowerCase().endsWith(".jar")) {
+                int lastSlash = Math.max(token.lastIndexOf('/'), token.lastIndexOf('\\'));
+                return lastSlash >= 0 ? token.substring(lastSlash + 1) : token;
+            }
         }
-        return first;
+        return parts[0];
     }
 }
